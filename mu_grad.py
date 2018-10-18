@@ -32,7 +32,7 @@ def get_mu_grad(mo_energy, mo_coeff, mu, beta):
 def fermi_smearing_occ(mu, mo_energy, beta):
     occ = np.zeros_like(mo_energy)
     de = beta * (mo_energy - mu) 
-    occ[de < 40] = 1.0 / (np.exp(de[de < 40]) + 1.0)
+    occ[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
     return occ
 
 def kernel(h, nelec, beta, mu0 = None):
@@ -41,14 +41,14 @@ def kernel(h, nelec, beta, mu0 = None):
     f_occ = fermi_smearing_occ
 
     if mu0 is None:
-        mu0 = mo_energy[nelec - 1]
+        mu0 = mo_energy[min(nelec, len(mo_energy)) - 1]
 
     def nelec_cost_fn(mu):
         mo_occ = f_occ(mu, mo_energy, beta)
         return (mo_occ.sum() - nelec)**2
 
     res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
-            {'maxiter': 10000, 'xatol': 1e-14, 'fatol': 1e-14})
+            {'maxiter': 10000, 'xatol': 2e-15, 'fatol': 2e-15})
     if not res.success:
         print "WARNING: fitting mu (fermi level) fails."
     mu = res.x
@@ -97,13 +97,13 @@ if __name__ == '__main__':
     #np.random.seed(1)
 
     norb = 8
-    nelec = 3
+    nelec = 5
     beta = 20.0
 
     #deg_orbs = []
     #deg_energy = []
-    deg_orbs = [[0,3], [1,2], [4,5,6]]
-    deg_energy = [1.0 , 0.1, 0.8]
+    deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
+    deg_energy = [1.0 , 0.1, 0.8, 3.0]
     h = get_h_random_deg(norb, deg_orbs = deg_orbs, deg_energy = deg_energy)
 
     print "h"
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     mu_grad_num = np.zeros_like(mu_grad)
     h_arr = h[np.triu_indices(norb)]
 
-    du = 1e-6
+    du = 1e-5
     for i in range(len(h_arr)):
         h_arr_tmp = h_arr.copy()
         h_arr_tmp[i] += du
