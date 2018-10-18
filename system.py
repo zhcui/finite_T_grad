@@ -5,12 +5,13 @@ from scipy.optimize import minimize
 import scipy.linalg as la
 
 def fermi_smearing_occ(mu, mo_energy, beta):
+    # get rho_mo
     occ = np.zeros_like(mo_energy)
     de = beta * (mo_energy - mu) 
     occ[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
     return occ
 
-def kernel(h, nelec, beta, mu0 = None):
+def kernel(h, nelec, beta, mu0 = None, fix_mu = False):
     
     mo_energy, mo_coeff = la.eigh(h)
     f_occ = fermi_smearing_occ
@@ -22,14 +23,20 @@ def kernel(h, nelec, beta, mu0 = None):
         mo_occ = f_occ(mu, mo_energy, beta)
         return (mo_occ.sum() - nelec)**2
 
-    res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
-            {'maxiter': 10000, 'xatol': 2e-15, 'fatol': 2e-15})
-    if not res.success:
-        print "WARNING: fitting mu (fermi level) fails."
-    mu = res.x
+    if not fix_mu:
+        res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
+                {'maxiter': 10000, 'xatol': 2e-15, 'fatol': 2e-15})
+        if not res.success:
+            print "WARNING: fitting mu (fermi level) fails."
+        mu = res.x[0]
+    else:
+        mu = mu0
     mo_occ = f_occ(mu, mo_energy, beta)
 
     return mo_energy, mo_coeff, mo_occ, mu
+
+def make_rdm1(mo_occ, mo_coeff):
+    return mo_coeff.dot(np.diag(mo_occ).dot(mo_coeff.conj().T))
 
 def get_h_random(norb, seed = None):
     

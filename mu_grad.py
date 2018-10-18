@@ -18,14 +18,9 @@ def get_mu_grad(mo_energy, mo_coeff, mu, beta):
     """
     norb = mo_coeff.shape[0]
     
-    rho_elec = np.zeros(norb)
-    de = beta * (mo_energy - mu) 
-    rho_elec[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
+    rho_elec = fermi_smearing_occ(mu, mo_energy, beta)
+    rho_hole = 1.0 - rho_elec
 
-    rho_hole = np.zeros(norb)
-    de = -de
-    rho_hole[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
-    
     #f = exp_func * rho * rho
     f = rho_elec * rho_hole    
 
