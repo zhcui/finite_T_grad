@@ -17,11 +17,19 @@ def get_mu_grad(mo_energy, mo_coeff, mu, beta):
 
     """
     norb = mo_coeff.shape[0]
-    exp_func = np.exp(beta * (mo_energy - mu))
-    rho = 1.0 / (1.0 + exp_func)
+    
+    rho_elec = np.zeros(norb)
+    de = beta * (mo_energy - mu) 
+    rho_elec[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
+
+    rho_hole = np.zeros(norb)
+    de = -de
+    rho_hole[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
+    
+    #f = exp_func * rho * rho
+    f = rho_elec * rho_hole    
 
     E_grad = np.einsum('ki, li -> kli', mo_coeff.conj(), mo_coeff)
-    f = exp_func * rho * rho
     
     mu_grad = np.dot(E_grad, f) / (f.sum())
     mu_grad = mu_grad + mu_grad.T
@@ -94,7 +102,7 @@ def triu_arr2mat(arr):
 if __name__ == '__main__':
     
     np.set_printoptions(5, linewidth =1000)
-    #np.random.seed(1)
+    np.random.seed(1)
 
     norb = 8
     nelec = 5
