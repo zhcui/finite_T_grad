@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-import sys
+from system import *
 import numpy as np
 from scipy.optimize import minimize
 import scipy.linalg as la
@@ -37,67 +37,6 @@ def get_mu_grad(mo_energy, mo_coeff, mu, beta):
     mu_grad = mu_grad[np.triu_indices(norb)]
     return mu_grad
 
-def fermi_smearing_occ(mu, mo_energy, beta):
-    occ = np.zeros_like(mo_energy)
-    de = beta * (mo_energy - mu) 
-    occ[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
-    return occ
-
-def kernel(h, nelec, beta, mu0 = None):
-    
-    mo_energy, mo_coeff = la.eigh(h)
-    f_occ = fermi_smearing_occ
-
-    if mu0 is None:
-        mu0 = mo_energy[min(nelec, len(mo_energy)) - 1]
-
-    def nelec_cost_fn(mu):
-        mo_occ = f_occ(mu, mo_energy, beta)
-        return (mo_occ.sum() - nelec)**2
-
-    res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
-            {'maxiter': 10000, 'xatol': 2e-15, 'fatol': 2e-15})
-    if not res.success:
-        print "WARNING: fitting mu (fermi level) fails."
-    mu = res.x
-    mo_occ = f_occ(mu, mo_energy, beta)
-
-    return mo_energy, mo_coeff, mo_occ, mu
-
-def get_h_random(norb, seed = None):
-    
-    if seed is not None:
-        np.random.seed(seed)
-    h = np.random.random((norb, norb))
-    h = h + h.T.conj()
-    return h
-
-def get_h_random_deg(norb, deg_orbs = [], deg_energy = [], seed = None):
-    
-    if seed is not None: 
-        np.random.seed(seed)
-    h = np.random.random((norb, norb))
-    h = h + h.T.conj()
-    mo_energy, mo_coeff = la.eigh(h)
-
-    for i in range(len(deg_orbs)):
-        mo_energy[deg_orbs[i]] = deg_energy[i]
-
-    h = mo_coeff.dot(np.diag(mo_energy).dot(mo_coeff.T.conj()))
-
-    return h
-
-def triu_mat2arr(mat):
-    norb = mat.shape[0]
-    return mat[np.triu_indices(norb)]
-
-def triu_arr2mat(arr):
-    norb = int(np.sqrt(len(arr) * 2))
-    mat = np.zeros((norb, norb), dtype = arr.dtype)
-    mat[np.triu_indices(norb)] = arr
-    mat = mat + mat.T.conj()
-    mat[np.arange(norb), np.arange(norb)] *= 0.5
-    return mat
 
 if __name__ == '__main__':
     
