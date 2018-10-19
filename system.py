@@ -1,14 +1,14 @@
 #! /usr/bin/env python
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, brentq
 import scipy.linalg as la
 
 def fermi_smearing_occ(mu, mo_energy, beta):
     # get rho_mo
     occ = np.zeros_like(mo_energy)
     de = beta * (mo_energy - mu) 
-    occ[de < 100] = 1.0 / (np.exp(de[de < 100]) + 1.0)
+    occ[de < 300] = 1.0 / (np.exp(de[de < 300]) + 1.0)
     return occ
 
 def kernel(h, nelec, beta, mu0 = None, fix_mu = False):
@@ -19,18 +19,38 @@ def kernel(h, nelec, beta, mu0 = None, fix_mu = False):
     if mu0 is None:
         mu0 = mo_energy[min(nelec, len(mo_energy)) - 1]
 
+    def nelec_cost_fn_brentq(mu):
+        mo_occ = f_occ(mu, mo_energy, beta)
+        return mo_occ.sum() - nelec
+    
     def nelec_cost_fn(mu):
         mo_occ = f_occ(mu, mo_energy, beta)
         return (mo_occ.sum() - nelec)**2
 
     if not fix_mu:
-        res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
-                {'maxiter': 10000, 'xatol': 2e-15, 'fatol': 2e-15})
-        if not res.success:
-            print "WARNING: fitting mu (fermi level) fails."
-        mu = res.x[0]
+        try:
+            res = brentq(nelec_cost_fn_brentq, mo_energy[0], mo_energy[-1], \
+                    xtol=1e-15, rtol=1e-15, \
+                    maxiter=10000, full_output=True, disp = False)
+            
+            if not res[1].converged:
+                print "WARNING: fitting mu (fermi level) fails."
+            mu = res[0]
+        except ValueError:
+            res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
+                    {'maxiter': 10000, 'xatol': 1e-15, 'fatol': 1e-15})
+            if not res.success:
+                print "WARNING: fitting mu (fermi level) fails."
+            mu = res.x[0]
+        except RuntimeError:
+            res = minimize(nelec_cost_fn, mu0, method = 'Nelder-Mead', options = \
+                    {'maxiter': 10000, 'xatol': 1e-15, 'fatol': 1e-15})
+            if not res.success:
+                print "WARNING: fitting mu (fermi level) fails."
+            mu = res.x[0]
     else:
         mu = mu0
+    
     mo_occ = f_occ(mu, mo_energy, beta)
 
     return mo_energy, mo_coeff, mo_occ, mu

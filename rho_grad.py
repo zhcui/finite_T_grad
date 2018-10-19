@@ -24,10 +24,10 @@ def get_rho_grad(mo_energy, mo_coeff, mu, beta):
 
     de_mat = mo_energy[:, None] - mo_energy
     beta_de_mat = beta * de_mat
-    beta_de_mat[beta_de_mat > 100] = 100
+    beta_de_mat[beta_de_mat > 300] = 300
     exp_ep_minus_eq = np.exp(beta_de_mat)
 
-    zero_idx = np.where(np.abs(de_mat) < 1.0e-12)
+    zero_idx = np.where(np.abs(de_mat) < 1.0e-13)
     de_mat[zero_idx] = np.inf
     de_mat_inv = 1.0 / de_mat
 
@@ -37,7 +37,8 @@ def get_rho_grad(mo_energy, mo_coeff, mu, beta):
     for p, q in zip(*zero_idx):
         K[p, q] = rho_elec[p] * rho_hole[q] * beta
 
-    rho_grad = -np.einsum('mp, lp, pq, sq, nq -> lsmn', mo_coeff, mo_coeff.conj(), K, mo_coeff, mo_coeff.conj())
+    rho_grad = -np.einsum('mp, lp, pq, sq, nq -> lsmn', \
+            mo_coeff, mo_coeff.conj(), K, mo_coeff, mo_coeff.conj())
     # symmetrize
     rho_grad = rho_grad + rho_grad.transpose(1,0,2,3)
     rho_grad[np.arange(norb), np.arange(norb)] *= 0.5
@@ -56,10 +57,10 @@ if __name__ == '__main__':
     nelec = 5
     beta = 10.0
 
-    #deg_orbs = []
-    #deg_energy = []
-    deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
-    deg_energy = [1.0 , 0.1, 0.8, 3.0]
+    deg_orbs = []
+    deg_energy = []
+    #deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
+    #deg_energy = [1.0 , 0.1, 0.8, 3.0]
     h = get_h_random_deg(norb, deg_orbs = deg_orbs, deg_energy = deg_energy)
 
     print "h"
@@ -108,6 +109,3 @@ if __name__ == '__main__':
     
     print "norm diff"
     print la.norm(rho_grad - rho_grad_num)
-    #print "element diff"
-    #print np.abs(rho_grad - rho_grad_num)
-    #print (rho_grad / rho_grad_num)
