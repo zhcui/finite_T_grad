@@ -5,15 +5,14 @@ import numpy as np
 from scipy.optimize import minimize
 import scipy.linalg as la
 
-def get_rho_grad(mo_energy, mo_coeff, mu, beta):
+def get_rho_grad_full(mo_energy, mo_coeff, mu, beta):
     """
-    partial gradient corresponding to rho change term.
-    partial rho_{ij} / partial v_{kl} [where kl is triu part of the potential]
+    full gradient corresponding to rho change term.
+    d rho_{ij} / d v_{kl} [where kl is triu part of the potential]
 
     Math:
-        partial rho_ij / partial v_kl = - C_{ip} C^*_{kp} K_pq C_{lq} C^*_{jq}
-        where
-        K_pq = n_p * (1 - n_q) * [exp(beta * (e_p - e_q)) - 1] / (e_p - e_q)
+        d rho_ij / d v_kl = partial rho_ij / partial v_kl 
+            + partial rho_ij / partial mu * partial mu / partial v_kl
 
     """
 
@@ -75,7 +74,7 @@ if __name__ == '__main__':
     print "mu"
     print mu
 
-    rho_grad = get_rho_grad(mo_energy, mo_coeff, mu, beta)
+    rho_grad = get_rho_grad_full(mo_energy, mo_coeff, mu, beta)
 
     print "rho grad analytical"
     print rho_grad
