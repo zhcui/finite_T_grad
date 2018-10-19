@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize import minimize
 import scipy.linalg as la
 
-def get_rho_grad_full(mo_energy, mo_coeff, mu, beta):
+def get_rho_grad_full(mo_energy, mo_coeff, mu, beta, fix_mu = False):
     """
     full gradient corresponding to rho change term.
     d rho_{ij} / d v_{kl} [where kl is triu part of the potential]
@@ -21,6 +21,7 @@ def get_rho_grad_full(mo_energy, mo_coeff, mu, beta):
     rho_elec = fermi_smearing_occ(mu, mo_energy, beta)
     rho_hole = 1.0 - rho_elec
 
+    # rho_grad_fix_mu:
     de_mat = mo_energy[:, None] - mo_energy
     beta_de_mat = beta * de_mat
     beta_de_mat[beta_de_mat > 300] = 300
@@ -43,8 +44,27 @@ def get_rho_grad_full(mo_energy, mo_coeff, mu, beta):
     rho_grad[np.arange(norb), np.arange(norb)] *= 0.5
     rho_grad = rho_grad[np.triu_indices(norb)]
 
-    return rho_grad
+    # contribution from mu change
+    if not fix_mu:
+        f = rho_elec * rho_hole    
+        
+        # partial rho_ij / partial mu
+        drho_dmu = mo_coeff.dot(np.diag(f)).dot(mo_coeff.conj().T)
+        drho_dmu *= beta
+        
+        # partial mu / partial v_{kl}
+        E_grad = np.einsum('ki, li -> kli', mo_coeff.conj(), mo_coeff)
+        mu_grad = np.dot(E_grad, f) / (f.sum())
+        mu_grad = mu_grad + mu_grad.T
+        mu_grad[np.arange(norb), np.arange(norb)] *= 0.5
+        mu_grad = mu_grad[np.triu_indices(norb)]
+        
+        # partial rho_{ij} / partial mu * partial mu / partial v_{kl}
+        rho_grad_mu_part = np.einsum('k, ij -> kij', mu_grad, drho_dmu)
 
+        rho_grad += rho_grad_mu_part
+        
+    return rho_grad
 
 
 if __name__ == '__main__':
@@ -56,10 +76,10 @@ if __name__ == '__main__':
     nelec = 5
     beta = 10.0
 
-    deg_orbs = []
-    deg_energy = []
-    #deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
-    #deg_energy = [1.0 , 0.1, 0.8, 3.0]
+    #deg_orbs = []
+    #deg_energy = []
+    deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
+    deg_energy = [1.0 , 0.1, 0.8, 3.0]
     h = get_h_random_deg(norb, deg_orbs = deg_orbs, deg_energy = deg_energy)
 
     print "h"
@@ -74,7 +94,7 @@ if __name__ == '__main__':
     print "mu"
     print mu
 
-    rho_grad = get_rho_grad_full(mo_energy, mo_coeff, mu, beta)
+    rho_grad = get_rho_grad_full(mo_energy, mo_coeff, mu, beta, fix_mu = False)
 
     print "rho grad analytical"
     print rho_grad
@@ -91,15 +111,15 @@ if __name__ == '__main__':
 
     h_arr = h[np.triu_indices(norb)]
 
-    du = 1.0e-4
+    du = 1.0e-6
     for i in range(len(h_arr)):
         h_arr_tmp = h_arr.copy()
         h_arr_tmp[i] += du
         h_tmp = triu_arr2mat(h_arr_tmp)
 
-        # keep mu unchanged
-        mo_energy_tmp, mo_coeff_tmp, mo_occ_tmp, _ = \
-                kernel(h_tmp, nelec, beta, mu0 = mu, fix_mu = True)
+        # keep mu changed
+        mo_energy_tmp, mo_coeff_tmp, mo_occ_tmp, mu_tmp = \
+                kernel(h_tmp, nelec, beta, mu0 = mu, fix_mu = False)
         rho_ao_tmp = make_rdm1(mo_occ_tmp, mo_coeff_tmp)
         rho_grad_num[i] = (rho_ao_tmp - rho_ao_ref)/du
 

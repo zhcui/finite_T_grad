@@ -57,11 +57,16 @@ if __name__ == '__main__':
     nelec = 5
     beta = 10.0
 
-    deg_orbs = []
-    deg_energy = []
-    #deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
-    #deg_energy = [1.0 , 0.1, 0.8, 3.0]
+    #deg_orbs = []
+    #deg_energy = []
+    deg_orbs = [[0,3], [1,2], [4,5,6], [7]]
+    deg_energy = [1.0 , 0.1, 0.8, 3.0]
     h = get_h_random_deg(norb, deg_orbs = deg_orbs, deg_energy = deg_energy)
+    
+    #h = np.eye(h.shape[0])
+    #
+    #for i in range(h.shape[0]):
+    #    h[i, i] +=  i
 
     print "h"
     print h
@@ -92,7 +97,7 @@ if __name__ == '__main__':
 
     h_arr = h[np.triu_indices(norb)]
 
-    du = 1.0e-4
+    du = 1.0e-6
     for i in range(len(h_arr)):
         h_arr_tmp = h_arr.copy()
         h_arr_tmp[i] += du
