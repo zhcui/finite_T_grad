@@ -23,22 +23,24 @@ def get_rho_grad_full(mo_energy, mo_coeff, mu, beta, fix_mu = False):
 
     # rho_grad_fix_mu:
     de_mat = mo_energy[:, None] - mo_energy
-    beta_de_mat = beta * de_mat
-    beta_de_mat[beta_de_mat > 300] = 300
-    exp_ep_minus_eq = np.exp(beta_de_mat)
 
-    zero_idx = np.where(np.abs(de_mat) < 1.0e-13)
+    zero_idx = np.where(np.abs(de_mat) < 1.0e-12)
     de_mat[zero_idx] = np.inf
     de_mat_inv = 1.0 / de_mat
 
-    K = np.einsum('p, q, pq, pq -> pq', rho_elec, rho_hole,\
-            exp_ep_minus_eq - 1.0, de_mat_inv)
-
+    #K_ref[p, q] = (rho_elec[q] - rho_elec[p]) / (de_mat[p, q])
+    rho_elec_diff = rho_elec[:, None] - rho_elec
+    K = np.einsum('qp, pq -> pq', rho_elec_diff, de_mat_inv)
     for p, q in zip(*zero_idx):
         K[p, q] = rho_elec[p] * rho_hole[q] * beta
 
-    rho_grad = -np.einsum('mp, lp, pq, sq, nq -> lsmn', \
-            mo_coeff, mo_coeff.conj(), K, mo_coeff, mo_coeff.conj())
+    #rho_grad = -np.einsum('mp, lp, pq, sq, nq -> lsmn', \
+    #        mo_coeff, mo_coeff.conj(), K, mo_coeff, mo_coeff.conj())
+    mo_coeff_conj = mo_coeff.conj()
+    scr = np.einsum('lp, mp -> lmp', mo_coeff_conj, mo_coeff)
+    rho_grad = -np.dot(scr, K)
+    rho_grad = np.einsum('lmq, nsq -> lsmn', rho_grad, scr)
+    
     # symmetrize
     rho_grad = rho_grad + rho_grad.transpose(1,0,2,3)
     rho_grad[np.arange(norb), np.arange(norb)] *= 0.5
@@ -74,7 +76,7 @@ if __name__ == '__main__':
 
     norb = 8
     nelec = 5
-    beta = 10.0
+    beta = 10000.0
 
     #deg_orbs = []
     #deg_energy = []
